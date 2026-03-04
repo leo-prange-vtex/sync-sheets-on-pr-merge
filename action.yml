@@ -12,6 +12,10 @@ inputs:
   google_doc_id:
     description: 'Google Doc ID to update'
     required: true
+  github_token:
+    description: 'GitHub token to access repository files'
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: 'node20'

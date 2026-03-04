@@ -24,7 +24,8 @@ describe('GitHub Action - Sync to Google Docs', () => {
       const inputs = {
         'folder_path': 'docs/prds',
         'google_service_account': '{"type":"service_account"}',
-        'google_doc_id': 'test-doc-id'
+        'google_doc_id': 'test-doc-id',
+        'github_token': 'test-token'
       };
       return inputs[name];
     });
@@ -88,45 +89,21 @@ describe('GitHub Action - Sync to Google Docs', () => {
     );
   });
 
-  test('warns when GITHUB_TOKEN is not provided', async () => {
-    delete process.env.GITHUB_TOKEN;
-
-    const mockOctokit = {
-      rest: {
-        pulls: {
-          listFiles: jest.fn().mockResolvedValue({
-            data: [
-              {filename: 'docs/prds/prd-001.md'}
-            ]
-          })
-        }
-      }
-    };
-
-    github.getOctokit.mockReturnValue(mockOctokit);
-
-    const mockDocs = {
-      documents: {
-        get: jest.fn().mockResolvedValue({
-          data: {
-            body: {
-              content: [{endIndex: 100}]
-            }
-          }
-        }),
-        batchUpdate: jest.fn().mockResolvedValue({})
-      }
-    };
-
-    google.docs.mockReturnValue(mockDocs);
-    google.auth.GoogleAuth.mockImplementation(() => ({}));
-
-    fs.readFileSync.mockReturnValue('test content');
+  test('fails when GITHUB_TOKEN is not provided', async () => {
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        'folder_path': 'docs/prds',
+        'google_service_account': '{"type":"service_account"}',
+        'google_doc_id': 'test-doc-id',
+        'github_token': ''  // Empty token to simulate missing input
+      };
+      return inputs[name];
+    });
 
     await run();
 
-    expect(core.warning).toHaveBeenCalledWith(
-      'GITHUB_TOKEN not provided; API calls may fail'
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'GITHUB_TOKEN not provided. This input is required to list PR files.'
     );
   });
 

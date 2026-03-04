@@ -9,6 +9,7 @@ async function run() {
     const folderPath = core.getInput('folder_path', {required: true});
     const serviceAccount = core.getInput('google_service_account', {required: true});
     const docId = core.getInput('google_doc_id', {required: true});
+    const token = core.getInput('github_token');
 
     const context = github.context;
 
@@ -22,11 +23,13 @@ async function run() {
       return;
     }
 
-    // List files changed in the PR
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) core.warning('GITHUB_TOKEN not provided; API calls may fail');
+    // Use provided token or fail if not available
+    if (!token) {
+      core.setFailed('GITHUB_TOKEN not provided. This input is required to list PR files.');
+      return;
+    }
 
-    const octokit = github.getOctokit(token || '');
+    const octokit = github.getOctokit(token);
     const owner = context.repo.owner;
     const repo = context.repo.repo;
     const prNumber = context.payload.pull_request.number;
