@@ -174,43 +174,60 @@ async function run() {
     const owner = context.repo.owner;
     const repo = context.repo.repo;
 
-    // Create a tab for each file
-    const requests = [];
-    const tabIds = [];
-
-    for (const file of changedFiles) {
-      // Create new tab for this file
-      const tabName = path.basename(file, path.extname(file));
-      requests.push({
-        addDocumentTab: {
-          tabProperties: {title: tabName}
+    // First, fetch the document to see which tabs already exist
+    core.info('Fetching document to check existing tabs...');
+    const docInfo = await docs.documents.get({documentId: docId});
+    
+    const existingTabTitles = new Set();
+    if (docInfo.data.tabs && docInfo.data.tabs.length > 0) {
+      for (const tab of docInfo.data.tabs) {
+        const tabTitle = tab.tabProperties?.title;
+        if (tabTitle) {
+          existingTabTitles.add(tabTitle);
         }
-      });
+      }
+      core.debug(`Existing tabs: ${Array.from(existingTabTitles).join(', ')}`);
     }
 
-    // Execute tab creation requests first
-    let tabResponse;
+    // Create tabs only for files that don't already have a tab
+    const requests = [];
+    const tabIds = [];
+    const tabsToCreate = [];
+
+    for (const file of changedFiles) {
+      const tabName = path.basename(file, path.extname(file));
+      if (!existingTabTitles.has(tabName)) {
+        tabsToCreate.push(tabName);
+        requests.push({
+          addDocumentTab: {
+            tabProperties: {title: tabName}
+          }
+        });
+      }
+    }
+
+    // Execute tab creation requests if needed
     if (requests.length > 0) {
-      tabResponse = await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: requests}});
+      core.info(`Creating ${requests.length} new tabs: ${tabsToCreate.join(', ')}`);
+      const tabResponse = await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: requests}});
       core.debug(`Tab creation response: ${JSON.stringify(tabResponse.data.replies)}`);
     }
 
-    // Always fetch the document to get the actual tab IDs
-    // This is more reliable than parsing the batch response
-    core.info('Fetching document to retrieve created tabs...');
-    const docInfo = await docs.documents.get({documentId: docId});
+    // Fetch the document again to get all tab IDs (existing + newly created)
+    core.info('Fetching document to retrieve all tab IDs...');
+    const updatedDocInfo = await docs.documents.get({documentId: docId});
     
-    if (docInfo.data.tabs && docInfo.data.tabs.length > 0) {
-      // Find tabs that match our created tabs (by title and get their IDs)
-      const createdTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
+    if (updatedDocInfo.data.tabs && updatedDocInfo.data.tabs.length > 0) {
+      // Find tabs that match our files (by title and get their IDs)
+      const fileTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
       
-      for (const tab of docInfo.data.tabs) {
+      for (const tab of updatedDocInfo.data.tabs) {
         const tabTitle = tab.tabProperties?.title;
-        if (tabTitle && createdTabTitles.includes(tabTitle)) {
+        if (tabTitle && fileTabTitles.includes(tabTitle)) {
           tabIds.push(tab.tabProperties.tabId);
         }
       }
-      core.info(`Found ${tabIds.length} created tabs with IDs: ${JSON.stringify(tabIds)}`);
+      core.info(`Found ${tabIds.length} tabs to fill with content (IDs: ${JSON.stringify(tabIds)})`);
     }
 
     // If we got some but not all tabs, warn but continue

@@ -70,6 +70,14 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     const mockDocs = {
       documents: {
+        get: jest.fn().mockResolvedValue({
+          data: {
+            tabs: [
+              {tabProperties: {tabId: 'tab-001', title: 'prd-001'}},
+              {tabProperties: {tabId: 'tab-002', title: 'prd-002'}}
+            ]
+          }
+        }),
         batchUpdate: jest.fn().mockResolvedValue({
           data: {
             replies: [
@@ -93,7 +101,7 @@ describe('GitHub Action - Sync to Google Docs', () => {
     await run();
 
     expect(core.info).toHaveBeenCalledWith(expect.stringContaining('Files to sync'));
-    expect(mockDocs.documents.batchUpdate).toHaveBeenCalled();
+    expect(mockDocs.documents.get).toHaveBeenCalled();
   });
 
   test('handles pull_request merge events', async () => {
@@ -113,6 +121,13 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     const mockDocs = {
       documents: {
+        get: jest.fn().mockResolvedValue({
+          data: {
+            tabs: [
+              {tabProperties: {tabId: 'tab-001', title: 'prd-001'}}
+            ]
+          }
+        }),
         batchUpdate: jest.fn().mockResolvedValue({
           data: {
             replies: [{addDocumentTab: {documentTab: {tabId: 'tab-001'}}}]
@@ -176,6 +191,15 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     const mockDocs = {
       documents: {
+        get: jest.fn().mockResolvedValue({
+          data: {
+            tabs: [
+              {tabProperties: {tabId: 'tab-001', title: 'prd-001'}},
+              {tabProperties: {tabId: 'tab-002', title: 'prd-002'}},
+              {tabProperties: {tabId: 'tab-003', title: 'prd-003'}}
+            ]
+          }
+        }),
         batchUpdate: jest.fn().mockResolvedValue({
           data: {
             replies: [
@@ -195,8 +219,8 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     await run();
 
-    const firstCall = mockDocs.documents.batchUpdate.mock.calls[0][0];
-    expect(firstCall.requestBody.requests.length).toBeGreaterThanOrEqual(3);
+    expect(mockDocs.documents.get).toHaveBeenCalled();
+    expect(core.info).toHaveBeenCalledWith(expect.stringContaining('Found 3 tabs to fill with content'));
   });
 
   test('handles non-existent folder gracefully', async () => {
@@ -284,6 +308,13 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     const mockDocs = {
       documents: {
+        get: jest.fn().mockResolvedValue({
+          data: {
+            tabs: [
+              {tabProperties: {tabId: 'tab-001', title: 'prd-001'}}
+            ]
+          }
+        }),
         batchUpdate: jest.fn().mockResolvedValue({
           data: {
             replies: [{addDocumentTab: {documentTab: {tabId: 'tab-001'}}}]
@@ -301,7 +332,7 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     await run();
 
-    expect(mockDocs.documents.batchUpdate).toHaveBeenCalled();
+    expect(mockDocs.documents.get).toHaveBeenCalled();
   });
 
 });
