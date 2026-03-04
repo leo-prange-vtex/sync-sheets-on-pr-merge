@@ -244,6 +244,13 @@ describe('GitHub Action - Sync to Google Docs', () => {
           data: {
             replies: [{addDocumentTab: {documentTab: {tabId: 'tab-001'}}}]
           }
+        }),
+        get: jest.fn().mockResolvedValue({
+          data: {
+            tabs: [
+              {tabProperties: {tabId: 'tab-001', title: 'prd-001'}}
+            ]
+          }
         })
       }
     };

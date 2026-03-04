@@ -192,22 +192,37 @@ async function run() {
     let tabResponse;
     if (requests.length > 0) {
       tabResponse = await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: requests}});
-      
-      // Extract tab IDs from response
-      if (tabResponse.data.replies) {
-        for (const reply of tabResponse.data.replies) {
-          if (reply.addDocumentTab && reply.addDocumentTab.documentTab && reply.addDocumentTab.documentTab.tabId) {
-            tabIds.push(reply.addDocumentTab.documentTab.tabId);
-          }
-        }
-      }
+      core.debug(`Tab creation response: ${JSON.stringify(tabResponse.data.replies)}`);
     }
 
-    // If we couldn't extract tab IDs, something went wrong - just insert to body
-    if (tabIds.length === 0) {
-      core.warning('Could not create document tabs, inserting content to document body instead');
-      let content = 'Synced files:\n\n';
+    // Always fetch the document to get the actual tab IDs
+    // This is more reliable than parsing the batch response
+    core.info('Fetching document to retrieve created tabs...');
+    const docInfo = await docs.documents.get({documentId: docId});
+    
+    if (docInfo.data.tabs && docInfo.data.tabs.length > 0) {
+      // Find tabs that match our created tabs (by title and get their IDs)
+      const createdTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
       
+      for (const tab of docInfo.data.tabs) {
+        const tabTitle = tab.tabProperties?.title;
+        if (tabTitle && createdTabTitles.includes(tabTitle)) {
+          tabIds.push(tab.tabProperties.tabId);
+        }
+      }
+      core.info(`Found ${tabIds.length} created tabs with IDs: ${JSON.stringify(tabIds)}`);
+    }
+
+    // If we got some but not all tabs, warn but continue
+    if (tabIds.length > 0 && tabIds.length < changedFiles.length) {
+      core.warning(`Only created ${tabIds.length} out of ${changedFiles.length} tabs`);
+    }
+
+    // If we couldn't create any tabs, insert to body instead
+    if (tabIds.length === 0) {
+      core.warning('Could not create tabs, inserting all content to document body');
+      let content = 'Synced files:\n\n';
+
       for (const file of changedFiles) {
         const filePath = path.join(process.cwd(), file);
         let markdownContent = '';
