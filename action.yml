@@ -1,6 +1,6 @@
-name: 'Sync to Google Docs on PR merge'
+name: 'Sync to Google Docs'
 
-description: 'When a pull request merged affecting a configured folder, sync files to a Google Doc.'
+description: 'Sync all files from a folder to a Google Doc. Triggered on push commits or pull request merge.'
 
 inputs:
   folder_path:
