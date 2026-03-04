@@ -196,11 +196,40 @@ async function run() {
       // Extract tab IDs from response
       if (tabResponse.data.replies) {
         for (const reply of tabResponse.data.replies) {
-          if (reply.addDocumentTab && reply.addDocumentTab.documentTab.tabId) {
+          if (reply.addDocumentTab && reply.addDocumentTab.documentTab && reply.addDocumentTab.documentTab.tabId) {
             tabIds.push(reply.addDocumentTab.documentTab.tabId);
           }
         }
       }
+    }
+
+    // If we couldn't extract tab IDs, something went wrong - just insert to body
+    if (tabIds.length === 0) {
+      core.warning('Could not create document tabs, inserting content to document body instead');
+      let content = 'Synced files:\n\n';
+      
+      for (const file of changedFiles) {
+        const filePath = path.join(process.cwd(), file);
+        let markdownContent = '';
+        try {
+          markdownContent = fs.readFileSync(filePath, 'utf8');
+        } catch (e) {
+          markdownContent = `Error reading file: ${e.message}`;
+        }
+
+        content += `\n--- ${path.basename(file)} ---\n${markdownContent}\n`;
+      }
+
+      const bodyRequests = [{
+        insertText: {
+          endOfSegmentLocation: {segmentId: ''},
+          text: content
+        }
+      }];
+
+      await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: bodyRequests}});
+      core.info('Google Doc updated successfully');
+      return;
     }
 
     // Now add content to each tab
@@ -208,6 +237,11 @@ async function run() {
     for (let i = 0; i < changedFiles.length; i++) {
       const file = changedFiles[i];
       const tabId = tabIds[i];
+      
+      if (!tabId) {
+        core.warning(`Tab ${i} could not be created, skipping content for ${file}`);
+        continue;
+      }
       
       const filePath = path.join(process.cwd(), file);
       let markdownContent = '';
