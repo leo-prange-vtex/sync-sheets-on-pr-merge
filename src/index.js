@@ -67,18 +67,10 @@ async function run() {
     }
 
     // Replace document body with content
-    // Fetch document to get current body content size
-    const doc = await docs.documents.get({documentId: docId});
-    const requests = [];
-
-    // Delete existing content except for title
-    const bodyEndIndex = doc.data.body.content[doc.data.body.content.length - 1].endIndex;
-    if (bodyEndIndex) {
-      requests.push({deleteContentRange: {range: {startIndex: 1, endIndex: bodyEndIndex}}});
-    }
-
-    // Insert new text
-    requests.push({insertText: {location: {index: 1}, text: content}});
+    // Append new content to the document
+    const requests = [
+      {insertText: {location: {index: 1}, text: `\n${content}`}}
+    ];
 
     await docs.documents.batchUpdate({documentId: docId, requestBody: {requests}});
 

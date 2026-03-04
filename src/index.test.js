@@ -192,7 +192,7 @@ describe('GitHub Action - Sync to Google Docs', () => {
 
     expect(mockDocs.documents.batchUpdate).toHaveBeenCalled();
     const batchUpdateCall = mockDocs.documents.batchUpdate.mock.calls[0][0];
-    expect(batchUpdateCall.requestBody.requests[1].insertText.text).toContain('failed to read');
+    expect(batchUpdateCall.requestBody.requests[0].insertText.text).toContain('failed to read');
   });
 
   test('handles Google API errors', async () => {
@@ -258,7 +258,7 @@ describe('GitHub Action - Sync to Google Docs', () => {
     await run();
 
     const batchUpdateCall = mockDocs.documents.batchUpdate.mock.calls[0][0];
-    const insertedText = batchUpdateCall.requestBody.requests[1].insertText.text;
+    const insertedText = batchUpdateCall.requestBody.requests[0].insertText.text;
 
     expect(insertedText).toContain('Synced files from test-owner/test-repo PR #42');
     expect(insertedText).toContain('docs/prds/prd-001.md');

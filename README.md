@@ -239,7 +239,7 @@ jobs:
 | Input | Obrigatório | Descrição | Exemplo |
 |-------|------------|-----------|----------|
 | `folder_path` | ✅ | Caminho da pasta a monitorar (relativo à raiz do repo) | `docs/prds` |
-| `google_service_account` | ✅ | JSON da Service Account (armazenado em Secrets) | `${{ secrets.GOOGLE_SERVICE_ACCOUNT }}` |
+| `google_service_account` | ✅ | **JSON da Service Account** no formato completo (armazenado em Secrets). Você pode criar uma conta de serviço e obter o JSON seguindo a [documentação oficial do Google](https://cloud.google.com/iam/docs/creating-managing-service-account-keys). | `${{ secrets.GOOGLE_SERVICE_ACCOUNT }}` |
 | `google_doc_id` | ✅ | ID do Google Doc para sincronização | `1a2b3c4d5e6f...` |
 
 ## 📚 Exemplos
