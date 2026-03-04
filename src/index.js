@@ -134,6 +134,7 @@ async function getAllFilesInFolder(folderPath, token, context) {
   }
 }
 
+// Sync Google Docs with markdown files from repository
 async function run() {
   try {
     const folderPath = core.getInput('folder_path', {required: true});
