@@ -1,0 +1,18 @@
+name: 'Sync to Google Docs on PR merge'
+
+description: 'When a pull request merged affecting a configured folder, sync files to a Google Doc.'
+
+inputs:
+  folder_path:
+    description: 'Folder path to watch (e.g., docs/prds)'
+    required: true
+  google_service_account:
+    description: 'Service account JSON (use secrets)'
+    required: true
+  google_doc_id:
+    description: 'Google Doc ID to update'
+    required: true
+
+runs:
+  using: 'node12'
+  main: 'src/index.js'

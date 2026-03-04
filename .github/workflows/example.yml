@@ -1,0 +1,20 @@
+name: Sync docs on PR merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  sync_docs:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync to Google Docs
+        uses: .
+        with:
+          folder_path: "docs/prds"
+          google_service_account: "${{ secrets.GOOGLE_SERVICE_ACCOUNT }}"
+          google_doc_id: "${{ secrets.GOOGLE_DOC_ID }}"
