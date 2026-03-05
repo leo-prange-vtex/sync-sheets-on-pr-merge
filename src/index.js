@@ -233,13 +233,18 @@ async function run() {
     const updatedDocInfo = await docs.documents.get({documentId: docId});
     
     const tabIdMap = new Map(); // Map of fileName -> {tabId, title}
+    const fileTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
+    
+    core.debug(`Expected tab titles: ${fileTabTitles.join(', ')}`);
     
     if (updatedDocInfo.data.tabs && updatedDocInfo.data.tabs.length > 0) {
-      const fileTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
+      core.debug(`Found ${updatedDocInfo.data.tabs.length} tabs in document`);
       
       for (const tab of updatedDocInfo.data.tabs) {
         const tabTitle = tab.tabProperties?.title;
         const tabId = tab.tabProperties?.tabId;
+        
+        core.debug(`Processing tab: "${tabTitle}" (ID: ${tabId})`);
         
         // Ignore Untitled tab
         if (tabTitle === 'Untitled') {
@@ -247,11 +252,17 @@ async function run() {
           continue;
         }
         
+        // Match tabs by title (exact match)
         if (tabTitle && tabId && fileTabTitles.includes(tabTitle)) {
           tabIdMap.set(tabTitle, {tabId, title: tabTitle});
+          core.debug(`Mapped tab "${tabTitle}" -> ${tabId}`);
+        } else if (tabTitle && tabId) {
+          core.debug(`Tab "${tabTitle}" does not match any file (expected: ${fileTabTitles.join(', ')})`);
         }
       }
-      core.info(`Found ${tabIdMap.size} tabs to fill with content`);
+      core.info(`Successfully mapped ${tabIdMap.size} of ${changedFiles.length} files to tabs`);
+    } else {
+      core.warning('No tabs found in document after creation');
     }
 
     // Now insert content into each tab
@@ -260,7 +271,8 @@ async function run() {
       const tabInfo = tabIdMap.get(tabName);
       
       if (!tabInfo) {
-        core.warning(`Could not find tab for file ${file}`);
+        core.warning(`Could not find tab for file ${file} (expected tab name: "${tabName}")`);
+        core.warning(`Available tabs: ${Array.from(tabIdMap.keys()).join(', ') || 'none'}`);
         continue;
       }
 
