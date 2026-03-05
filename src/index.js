@@ -190,7 +190,10 @@ async function run() {
 
     // First, fetch the document to see which tabs already exist
     core.info('Fetching document to check existing tabs...');
-    const docInfo = await docs.documents.get({documentId: docId});
+    const docInfo = await docs.documents.get({
+      documentId: docId,
+      fields: 'tabs'  // Explicitly request tabs field
+    });
     
     const existingTabs = new Map(); // Map of tabTitle -> tabId
     
@@ -254,12 +257,17 @@ async function run() {
 
     // Fetch the document again to get all tab IDs (existing + newly created)
     core.info('Fetching document to retrieve all tab IDs...');
-    const updatedDocInfo = await docs.documents.get({documentId: docId});
+    const updatedDocInfo = await docs.documents.get({
+      documentId: docId,
+      fields: 'tabs'  // Explicitly request tabs field
+    });
     
     core.debug(`documents.get() response keys: ${Object.keys(updatedDocInfo.data).join(', ')}`);
     core.debug(`Has tabs property: ${!!updatedDocInfo.data.tabs}`);
-    core.debug(`Tabs: ${JSON.stringify(updatedDocInfo.data.tabs, null, 2)}`);
-    
+    if (updatedDocInfo.data.tabs) {
+      core.debug(`Tabs array length: ${updatedDocInfo.data.tabs.length}`);
+      core.debug(`Tabs content: ${JSON.stringify(updatedDocInfo.data.tabs, null, 2)}`);
+    }
     const tabIdMap = new Map(); // Map of tabName -> {tabId, title}
     // Get the list of expected tab names (already without extension)
     const expectedTabNames = Array.from(fileToTabMap.values());
