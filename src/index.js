@@ -232,11 +232,16 @@ async function run() {
       core.info(`Creating ${createTabRequests.length} new tabs: ${tabsToCreate.join(', ')}`);
       const createResponse = await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: createTabRequests}});
       
+      core.debug(`batchUpdate response: ${JSON.stringify(createResponse.data, null, 2)}`);
+      
       // Extract created tab IDs from response
       if (createResponse.data.replies && createResponse.data.replies.length > 0) {
+        core.debug(`Replies length: ${createResponse.data.replies.length}`);
         for (let i = 0; i < createResponse.data.replies.length; i++) {
           const reply = createResponse.data.replies[i];
           const tabName = tabsToCreate[i];
+          
+          core.debug(`Reply ${i}: ${JSON.stringify(reply, null, 2)}`);
           
           if (reply.addDocumentTab && reply.addDocumentTab.documentTab && reply.addDocumentTab.documentTab.tabId) {
             const tabId = reply.addDocumentTab.documentTab.tabId;
@@ -250,6 +255,10 @@ async function run() {
     // Fetch the document again to get all tab IDs (existing + newly created)
     core.info('Fetching document to retrieve all tab IDs...');
     const updatedDocInfo = await docs.documents.get({documentId: docId});
+    
+    core.debug(`documents.get() response keys: ${Object.keys(updatedDocInfo.data).join(', ')}`);
+    core.debug(`Has tabs property: ${!!updatedDocInfo.data.tabs}`);
+    core.debug(`Tabs: ${JSON.stringify(updatedDocInfo.data.tabs, null, 2)}`);
     
     const tabIdMap = new Map(); // Map of tabName -> {tabId, title}
     // Get the list of expected tab names (already without extension)
@@ -283,11 +292,13 @@ async function run() {
       core.info(`Successfully mapped ${tabIdMap.size} of ${changedFiles.length} files to tabs`);
     } else {
       core.warning('No tabs found in document after fetch');
+      core.debug(`Debugging info - updatedDocInfo.data type: ${typeof updatedDocInfo.data}, keys: ${Object.keys(updatedDocInfo.data).slice(0, 5).join(', ')}`);
     }
     
     // Fallback: use existingTabs if document fetch didn't return tabs (they might not be visible yet)
     if (tabIdMap.size === 0 && existingTabs.size > 0) {
       core.info(`Document fetch returned no matching tabs, using captured tab IDs from creation`);
+      core.debug(`existingTabs has ${existingTabs.size} entries: ${Array.from(existingTabs.keys()).join(', ')}`);
       for (const [tabTitle, tabId] of existingTabs) {
         // Only use tabs that match our expected files
         if (expectedTabNames.includes(tabTitle)) {
@@ -295,6 +306,7 @@ async function run() {
           core.debug(`Using captured tab "${tabTitle}" -> ${tabId}`);
         }
       }
+      core.debug(`After fallback, tabIdMap has ${tabIdMap.size} entries`);
     }
 
     // Now insert content into each tab
