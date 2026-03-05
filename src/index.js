@@ -209,9 +209,13 @@ async function run() {
     // Create tabs only for files that don't already have a tab
     const createTabRequests = [];
     const tabsToCreate = [];
+    const fileToTabMap = new Map(); // Map file path to tab name (without extension)
 
     for (const file of changedFiles) {
+      // Extract tab name: remove path and extension
       const tabName = path.basename(file, path.extname(file));
+      fileToTabMap.set(file, tabName);
+      
       if (!existingTabs.has(tabName)) {
         tabsToCreate.push(tabName);
         createTabRequests.push({
@@ -219,23 +223,39 @@ async function run() {
             tabProperties: {title: tabName}
           }
         });
+        core.debug(`Queuing tab creation for "${tabName}" (from file: ${file})`);
       }
     }
 
     // Execute tab creation requests if needed
     if (createTabRequests.length > 0) {
       core.info(`Creating ${createTabRequests.length} new tabs: ${tabsToCreate.join(', ')}`);
-      await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: createTabRequests}});
+      const createResponse = await docs.documents.batchUpdate({documentId: docId, requestBody: {requests: createTabRequests}});
+      
+      // Extract created tab IDs from response
+      if (createResponse.data.replies && createResponse.data.replies.length > 0) {
+        for (let i = 0; i < createResponse.data.replies.length; i++) {
+          const reply = createResponse.data.replies[i];
+          const tabName = tabsToCreate[i];
+          
+          if (reply.addDocumentTab && reply.addDocumentTab.documentTab && reply.addDocumentTab.documentTab.tabId) {
+            const tabId = reply.addDocumentTab.documentTab.tabId;
+            existingTabs.set(tabName, tabId);
+            core.debug(`Captured created tab "${tabName}" -> ${tabId}`);
+          }
+        }
+      }
     }
 
     // Fetch the document again to get all tab IDs (existing + newly created)
     core.info('Fetching document to retrieve all tab IDs...');
     const updatedDocInfo = await docs.documents.get({documentId: docId});
     
-    const tabIdMap = new Map(); // Map of fileName -> {tabId, title}
-    const fileTabTitles = changedFiles.map(f => path.basename(f, path.extname(f)));
+    const tabIdMap = new Map(); // Map of tabName -> {tabId, title}
+    // Get the list of expected tab names (already without extension)
+    const expectedTabNames = Array.from(fileToTabMap.values());
     
-    core.debug(`Expected tab titles: ${fileTabTitles.join(', ')}`);
+    core.debug(`Expected tab names: ${expectedTabNames.join(', ')}`);
     
     if (updatedDocInfo.data.tabs && updatedDocInfo.data.tabs.length > 0) {
       core.debug(`Found ${updatedDocInfo.data.tabs.length} tabs in document`);
@@ -252,22 +272,40 @@ async function run() {
           continue;
         }
         
-        // Match tabs by title (exact match)
-        if (tabTitle && tabId && fileTabTitles.includes(tabTitle)) {
+        // Match tabs by title (exact match) - both are already without extension
+        if (tabTitle && tabId && expectedTabNames.includes(tabTitle)) {
           tabIdMap.set(tabTitle, {tabId, title: tabTitle});
           core.debug(`Mapped tab "${tabTitle}" -> ${tabId}`);
         } else if (tabTitle && tabId) {
-          core.debug(`Tab "${tabTitle}" does not match any file (expected: ${fileTabTitles.join(', ')})`);
+          core.debug(`Tab "${tabTitle}" does not match any file (expected: ${expectedTabNames.join(', ')})`);
         }
       }
       core.info(`Successfully mapped ${tabIdMap.size} of ${changedFiles.length} files to tabs`);
     } else {
-      core.warning('No tabs found in document after creation');
+      core.warning('No tabs found in document after fetch');
+    }
+    
+    // Fallback: use existingTabs if document fetch didn't return tabs (they might not be visible yet)
+    if (tabIdMap.size === 0 && existingTabs.size > 0) {
+      core.info(`Document fetch returned no matching tabs, using captured tab IDs from creation`);
+      for (const [tabTitle, tabId] of existingTabs) {
+        // Only use tabs that match our expected files
+        if (expectedTabNames.includes(tabTitle)) {
+          tabIdMap.set(tabTitle, {tabId, title: tabTitle});
+          core.debug(`Using captured tab "${tabTitle}" -> ${tabId}`);
+        }
+      }
     }
 
     // Now insert content into each tab
     for (const file of changedFiles) {
-      const tabName = path.basename(file, path.extname(file));
+      // Get the tab name that was assigned to this file (without extension)
+      const tabName = fileToTabMap.get(file);
+      if (!tabName) {
+        core.warning(`Internal error: no tab name mapped for file ${file}`);
+        continue;
+      }
+      
       const tabInfo = tabIdMap.get(tabName);
       
       if (!tabInfo) {
